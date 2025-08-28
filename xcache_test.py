@@ -16,7 +16,7 @@ import time
 from test_processor import TtbarAnalysis
 import utils # contains code for bookkeeping and cosmetics, as well as some boilerplate
 
-FILESET_LOC = "test_fileset_available.json.gz"
+FILESET_LOC = "xcache_test_fileset_available.json.gz"
 N_FILES_MAX_PER_SAMPLE = utils.config["benchmarking"]["N_FILES_MAX_PER_SAMPLE"]
 N_CHUNKS_MAX_PER_FILE = utils.config["benchmarking"]["N_CHUNKS_MAX_PER_FILE"]
 MAX_WORKERS = utils.config["benchmarking"]["MAX_WORKERS"]
@@ -43,7 +43,7 @@ def get_client():
 
 def main():
     #Store reports here
-    Path(f"reports/{XRD_CHOICE}").mkdir(parents=True, exist_ok=True)
+    Path(f"reports/{XRD_CHOICE.replace('.','_')}").mkdir(parents=True, exist_ok=True)
     if utils.config["benchmarking"]["USE_HTC"]:
         htc_label = "HTC"
     else:
@@ -51,7 +51,10 @@ def main():
         
     ###################### Modify this if adding a new AF/set of XRootD options ######################
     if utils.config["global"]["AF"] == "Wisconsin":
-        xrd_base = f"root://cms{XRD_CHOICE}.hep.wisc.edu/"
+        if XRD_CHOICE == "cmsxrootd.fnal.gov":
+            xrd_base = f"root://cmsxrootd.fnal.gov/"
+        else:
+            xrd_base = f"root://cms{XRD_CHOICE}.hep.wisc.edu/"
     ##################################################################################################
     
     #Prepare fileset
@@ -89,7 +92,7 @@ def main():
     client = get_client()
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    rep_fname = f"reports/{XRD_CHOICE}/{htc_label}_{MAX_WORKERS}_{N_FILES_MAX_PER_SAMPLE}_{N_CHUNKS_MAX_PER_FILE}"
+    rep_fname = f"reports/{XRD_CHOICE.replace('.','_')}/{htc_label}_{MAX_WORKERS}_{N_FILES_MAX_PER_SAMPLE}_{N_CHUNKS_MAX_PER_FILE}"
     with client, performance_report(filename=f"{rep_fname}.html"):
         print("Starting clock")
         t0 = time.monotonic()
