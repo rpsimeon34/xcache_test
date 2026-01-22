@@ -15,12 +15,14 @@ config = {
         #Which XRootD server to use
         #For Wisconsin, options are "xcache" for the full server, or
         #"xcache01" - "xcache05" for the individual disks
-        "XROOTD_CHOICE": "xcache",
+        "XROOTD_CHOICE": "xcache05",
         #If None, there is no max
-        "N_FILES_MAX_PER_SAMPLE": 2,
+        "N_FILES_MAX_PER_SAMPLE": None,
         "N_CHUNKS_MAX_PER_FILE": None,
         #Number of seconds before giving up on file reading
         "TIMEOUT": 300,
+        #Approximate number of events per Condor job
+        "CHUNKSIZE": 100_000,
         #Number of distributed workers to request
         "MAX_WORKERS": 250,
         # Enable distributed computing

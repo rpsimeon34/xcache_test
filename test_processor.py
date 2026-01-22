@@ -3,7 +3,6 @@ from coffea import processor
 from coffea.analysis_tools import PackedSelection
 import correctionlib
 import hist
-import hist.dask as hda
 
 import utils # contains code for bookkeeping and cosmetics, as well as some boilerplate
 
@@ -15,7 +14,7 @@ class TtbarAnalysis(processor.ProcessorABC):
         self.hist_dict = {}
         for region in ["4j1b", "4j2b"]:
             self.hist_dict[region] = (
-                hda.Hist(hist.axis.Regular(utils.config["global"]["NUM_BINS"], 
+                hist.Hist(hist.axis.Regular(utils.config["global"]["NUM_BINS"], 
                                   utils.config["global"]["BIN_LOW"], 
                                   utils.config["global"]["BIN_HIGH"], 
                                   name="observable", 
@@ -46,11 +45,11 @@ class TtbarAnalysis(processor.ProcessorABC):
             # IO testing with no subsequent processing
             return self.only_do_IO(events)
 
-        process = events.metadata["metadata"]["process"]  # "ttbar" etc.
-        variation = events.metadata["metadata"]["variation"]  # "nominal" etc.
+        process = events.metadata["process"]  # "ttbar" etc.
+        variation = events.metadata["variation"]  # "nominal" etc.
 
         # normalization for MC
-        x_sec = events.metadata["metadata"]["xsec"]
+        x_sec = events.metadata["xsec"]
         nevts_total = ak.num(events,axis=0)
         lumi = 3378 # /pb
         if process != "data":
@@ -107,8 +106,8 @@ class TtbarAnalysis(processor.ProcessorABC):
             # Basic selection criteria
             selections.add("exactly_1l", (ak.num(elecs) + ak.num(muons)) == 1)
             selections.add("atleast_4j", ak.num(jets) >= 4)
-            selections.add("exactly_1b", ak.sum(jets.btagCSVV2 > B_TAG_THRESHOLD, axis=1) == 1)
-            selections.add("atleast_2b", ak.sum(jets.btagCSVV2 > B_TAG_THRESHOLD, axis=1) >= 2)
+            selections.add("exactly_1b", ak.sum(jets.btagPNetB > B_TAG_THRESHOLD, axis=1) == 1)
+            selections.add("atleast_2b", ak.sum(jets.btagPNetB > B_TAG_THRESHOLD, axis=1) >= 2)
             # Complex selection criteria
             selections.add("4j1b", selections.all("exactly_1l", "atleast_4j", "exactly_1b"))
             selections.add("4j2b", selections.all("exactly_1l", "atleast_4j", "atleast_2b"))
@@ -129,9 +128,9 @@ class TtbarAnalysis(processor.ProcessorABC):
                     # reconstruct hadronic top as bjj system with largest pT
                     trijet = ak.combinations(region_jets, 3, fields=["j1", "j2", "j3"])  # trijet candidates
                     trijet["p4"] = trijet.j1 + trijet.j2 + trijet.j3  # calculate four-momentum of tri-jet system
-                    max_btag23 = ak.where(trijet.j2.btagCSVV2 > trijet.j3.btagCSVV2, trijet.j2.btagCSVV2, trijet.j3.btagCSVV2)
-                    trijet["max_btag"] = ak.where(trijet.j1.btagCSVV2 > max_btag23, trijet.j1.btagCSVV2, max_btag23)
-                    btag_filt = (trijet.j1.btagCSVV2 > B_TAG_THRESHOLD) | (trijet.j2.btagCSVV2 > B_TAG_THRESHOLD) | (trijet.j3.btagCSVV2 > B_TAG_THRESHOLD)
+                    max_btag23 = ak.where(trijet.j2.btagPNetB > trijet.j3.btagPNetB, trijet.j2.btagPNetB, trijet.j3.btagPNetB)
+                    trijet["max_btag"] = ak.where(trijet.j1.btagPNetB > max_btag23, trijet.j1.btagPNetB, max_btag23)
+                    btag_filt = (trijet.j1.btagPNetB > B_TAG_THRESHOLD) | (trijet.j2.btagPNetB > B_TAG_THRESHOLD) | (trijet.j3.btagPNetB > B_TAG_THRESHOLD)
                     trijet = trijet[btag_filt]  # at least one-btag in trijet candidates
                     # pick trijet candidate with largest pT and calculate mass of system
                     trijet_mass = trijet["p4"][ak.argmax(trijet.p4.pt, axis=1, keepdims=True)].mass
@@ -167,9 +166,9 @@ class TtbarAnalysis(processor.ProcessorABC):
                     )
 
 
-        output = {"nevents": {events.metadata["dataset"]: ak.num(events,axis=0)}, "hist_dict": self.hist_dict}
+        output = {"nevents": ak.num(events,axis=0), "hist_dict": self.hist_dict}
 
-        return output
+        return {events.metadata["dataset"]: output}
 
     def postprocess(self, accumulator):
         return accumulator

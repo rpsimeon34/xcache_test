@@ -1,7 +1,8 @@
 import awkward as ak
 from coffea import processor
 from coffea.analysis_tools import PackedSelection
-from coffea.dataset_tools import apply_to_fileset, max_files, max_chunks
+from coffea.dataset_tools import max_files, max_chunks
+from coffea.processor import Runner, DaskExecutor
 import dask
 from dask.distributed import Client, performance_report
 import datetime
@@ -24,13 +25,13 @@ XRD_CHOICE = utils.config["benchmarking"]["XROOTD_CHOICE"]
 
 # Imports specific to Wisconsin Analysis Facility
 if utils.config["global"]["AF"] == "Wisconsin":
-    import cowtools
+    import cowtools.jobqueue
 
 def get_client():
     if not utils.config["benchmarking"]["USE_HTC"]:
         return Client()
     if utils.config["global"]["AF"] == "Wisconsin":
-        client = cowtools.GetCondorClient(
+        client = cowtools.jobqueue.GetCondorClient(
             max_workers=utils.config["benchmarking"]["MAX_WORKERS"],
             memory="4 GB",
             disk="2 GB"
@@ -88,19 +89,36 @@ def main():
                     files_info[xfname] = fval
                 dataset_ready[key] = files_info
         fileset_ready[dset] = dataset_ready
+
+    #Take a fileset suitable for Dask coffea and make it suitable for virtual array coffea
+    fileset_ready = utils.helpers.unpreprocess(fileset_ready)
     
     client = get_client()
 
+    runner = Runner(
+        DaskExecutor(client=client),
+        chunksize=utils.config["benchmarking"]["CHUNKSIZE"],
+        skipbadfiles=True,
+        xrootdtimeout=utils.config["benchmarking"]["TIMEOUT"]
+    )
+
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    rep_fname = f"reports/{XRD_CHOICE.replace('.','_')}/{htc_label}_{MAX_WORKERS}_{N_FILES_MAX_PER_SAMPLE}_{N_CHUNKS_MAX_PER_FILE}"
-    with client, performance_report(filename=f"{rep_fname}.html"):
+    rep_fname = f"reports/{XRD_CHOICE.replace('.','_')}/{htc_label}_{MAX_WORKERS}_{N_FILES_MAX_PER_SAMPLE}_{N_CHUNKS_MAX_PER_FILE}_{timestamp}"
+    with performance_report(filename=f"{rep_fname}.html"):
         print("Starting clock")
         t0 = time.monotonic()
         #Run across the fileset (if set up correctly, a lazy dask operation)
         outputs, reports = apply_to_fileset(TtbarAnalysis(),fileset_ready,uproot_options={"allow_read_errors_with_report": True, "skipbadfiles": True, "timeout": utils.config["benchmarking"]["TIMEOUT"]})
         #Actually compute the outputs
         print('About to compute signal outputs')
-        coutputs, creports = dask.compute(outputs,reports)
+        coutputs = runner(fileset_ready,
+                          processor_instance=TtbarAnalysis(),
+                          uproot_options={"allow_read_errors_with_report": (ValueError,OSError),
+                                          "skipbadfiles": True,
+                                          "treename": "Events"
+                                         },
+                          treename="Events"
+                         )
         print('Finished computing signal outputs')
 
     exec_time = time.monotonic() - t0
@@ -110,10 +128,7 @@ def main():
     print(f"\nexecution with XCache took {exec_time:.2f} seconds")
     creports["TotalTime"] = exec_time
 
-    with open(f"{rep_fname}.pkl", "wb") as f:
-        pickle.dump(creports,f)
-
-    print(f"Wrote HTML and pkl reports to {rep_fname} (.html and .pkl, respectively)")
+    print(f"Wrote HTML report to {rep_fname}.html")
 
 if __name__ == "__main__":
     main()
