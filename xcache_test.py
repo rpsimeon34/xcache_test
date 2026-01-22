@@ -24,13 +24,13 @@ XRD_CHOICE = utils.config["benchmarking"]["XROOTD_CHOICE"]
 
 # Imports specific to Wisconsin Analysis Facility
 if utils.config["global"]["AF"] == "Wisconsin":
-    import cowtools
+    import cowtools.jobqueue
 
 def get_client():
     if not utils.config["benchmarking"]["USE_HTC"]:
         return Client()
     if utils.config["global"]["AF"] == "Wisconsin":
-        client = cowtools.GetCondorClient(
+        client = cowtools.jobqueue.GetCondorClient(
             max_workers=utils.config["benchmarking"]["MAX_WORKERS"],
             memory="4 GB",
             disk="2 GB"
@@ -104,10 +104,11 @@ def main():
         print('Finished computing signal outputs')
 
     exec_time = time.monotonic() - t0
+
+    if utils.config["benchmarking"]["USE_HTC"]:
+        client.shutdown()
     
-    client.shutdown()
-    
-    print(f"\nexecution with XCache took {exec_time:.2f} seconds")
+    print(f"\nexecution took {exec_time:.2f} seconds")
     creports["TotalTime"] = exec_time
 
     with open(f"{rep_fname}.pkl", "wb") as f:
