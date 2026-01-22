@@ -24,13 +24,13 @@ XRD_CHOICE = utils.config["benchmarking"]["XROOTD_CHOICE"]
 
 # Imports specific to Wisconsin Analysis Facility
 if utils.config["global"]["AF"] == "Wisconsin":
-    import cowtools
+    import cowtools.jobqueue
 
 def get_client():
     if not utils.config["benchmarking"]["USE_HTC"]:
         return Client()
     if utils.config["global"]["AF"] == "Wisconsin":
-        client = cowtools.GetCondorClient(
+        client = cowtools.jobqueue,GetCondorClient(
             max_workers=utils.config["benchmarking"]["MAX_WORKERS"],
             memory="4 GB",
             disk="2 GB"
