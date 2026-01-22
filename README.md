@@ -11,6 +11,8 @@ facilities - in particular, XCache servers.
 In short: the user must have CMS file access, there must be an XRootD server available, and you must
 have the ability to run containers based on a Dockerfile.
 
+This version of the test uses dask-based coffea (v2023 <= version <= 2025.3).
+
 To better represent the performance for realistic file access patterns, filesets were generated using
 `coffea`'s Dataset Discovery tools within the CMS context. Therefore, the user must have CMS file
 access permissions (ie: VOMS proxy for CMS). Since this tests an XRootD server, there must be an
